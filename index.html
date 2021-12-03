@@ -40,6 +40,7 @@ out vec3 vNormal;
 out vec4 vModelViewPosition;
 out vec3 vModelNormal;
 out vec3 normal;
+out vec3 viewPortPosition;
 
 void main() {
   vPosition = aVertexPosition;
@@ -50,6 +51,7 @@ void main() {
   vModelViewPosition = uViewMatrix * uModelMatrix * vec4(aVertexPosition, 1.0);
   vModelNormal = normalize(mat3(uModelMatrix) * aVertexNormal);
 
+  vec3 viewPortPosition = vPosition;
   gl_Position = uProjectionMatrix * vModelViewPosition;
 }
 `;
@@ -75,6 +77,7 @@ in vec3 vModelPosition;
 in vec3 vNormal, normal;
 in vec4 vModelViewPosition;
 in vec3 vModelNormal;
+in vec3 viewPortPosition;
 
 uniform sampler2D textureMap;
 uniform sampler2D environmentMap;
@@ -266,11 +269,8 @@ void main() {
     //
 
     Textures = {
-      // harryImageTexture: createImageTexture("HP-Texture.png", 1174, 320, 0),
-      // bumpImageTexture: createImageTexture("HP-Normal-Map.png", 1174, 320, 2),
-      harryImageTexture: createImageTexture("HP-Logo-Final_NM_Final.png", 1220, 367, 0),
-      // bumpImageTexture: createImageTexture("HP-Logo-Final_NM_Final_Inverted.png", 1220, 367, 2),
-      bumpImageTexture: createImageTexture("HP-Logo-Final_NM_Final_NonInverted.png", 1220, 367, 2),
+      harryImageTexture: createImageTexture("HP_Logo_Texture.png", 1220, 367, 0),
+      bumpImageTexture: createImageTexture("HP_Logo_Normal_Map.png", 1220, 367, 2),
       environMapImageTexture: createImageTexture("Hogwarts_Stairs_Env_Map.jpg", 1024, 1024, 1),
       bind: function () {
         gl.uniform1i(programLookupData.uniformLocations.textureMap, 0);

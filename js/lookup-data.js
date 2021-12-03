@@ -9,7 +9,7 @@ const Matrices = {
         var plane = glMatrix.mat4.create();
         glMatrix.mat4.scale(plane, plane, [0.8, 0.8, 0.8]);
         glMatrix.mat4.translate(plane, plane, [-0.2, 0.4, -1.0]);
-        //glMatrix.mat4.rotateY(plane, plane, time * 0.0005);
+        glMatrix.mat4.rotateY(plane, plane, time * 0.0005);
         return plane
     },
     TeapotModel: function (time) {
@@ -23,8 +23,7 @@ const Matrices = {
         var shadow = glMatrix.mat4.create();
         glMatrix.mat4.translate(shadow, shadow, [-0.5, -0.3, -0.5]);
         glMatrix.mat4.scale(shadow, shadow, [0.8, 0.02, 1.0]);        
-        // glMatrix.mat4.ortho(shadow, -1, 1, -1, 1, 1, -1);        
-        //glMatrix.mat4.rotateY(shadow, shadow, time * 0.0005);
+        // glMatrix.mat4.rotateY(shadow, shadow, time * 0.0005);
         return shadow
     },
     View: function () {
