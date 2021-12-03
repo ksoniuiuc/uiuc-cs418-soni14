@@ -1,0 +1,309 @@
+<!DOCTYPE HTML>
+<html>
+
+<script src="js/unit teapot.js"></script>
+<script src="js/plane.js"></script>
+<script src="js/gl-matrix-min.js"></script>
+<script src="js/shader-functions.js"></script>
+<script src="js/binding-functions.js"></script>
+<script src="js/image-functions.js"></script>
+<script src="js/draw-functions.js"></script>
+<script src="js/lookup-data.js"></script>
+<script src="js/shadow_pot.js"></script>
+
+<script>
+
+  var gl;
+  var programLookupData;
+  var teapot_vao;
+  var teapotBuffer;
+  var plane_vao;
+  var planeBuffer;
+
+  //
+  // a vertex shader implemented as a backquoted string variable
+  //
+
+  var vertexShaderGLSL = `#version 300 es
+
+in vec3 aVertexPosition;
+in vec3 aVertexNormal;
+
+uniform mat4 uModelMatrix;
+uniform mat4 uViewMatrix;
+uniform mat3 uNormalMatrix;
+uniform mat4 uProjectionMatrix;
+
+out vec3 vPosition;
+out vec3 vModelPosition;
+out vec3 vNormal;
+out vec4 vModelViewPosition;
+out vec3 vModelNormal;
+out vec3 normal;
+
+void main() {
+  vPosition = aVertexPosition;
+  normal = aVertexNormal;
+
+  vModelPosition = mat3(uModelMatrix) * aVertexPosition;
+  vNormal = uNormalMatrix*aVertexNormal;
+  vModelViewPosition = uViewMatrix * uModelMatrix * vec4(aVertexPosition, 1.0);
+  vModelNormal = normalize(mat3(uModelMatrix) * aVertexNormal);
+
+  gl_Position = uProjectionMatrix * vModelViewPosition;
+}
+`;
+
+  //
+  // a fragment shader implemented as a backquoted string variable
+  //
+
+  var fragmentShaderGLSL = `#version 300 es
+
+#define M_PI 3.1415926535
+
+#if __VERSION__ < 130
+#define TEXTURE2D texture2D
+#else
+#define TEXTURE2D texture
+#endif
+
+precision mediump float;
+    
+in vec3 vPosition;
+in vec3 vModelPosition;
+in vec3 vNormal, normal;
+in vec4 vModelViewPosition;
+in vec3 vModelNormal;
+
+uniform sampler2D textureMap;
+uniform sampler2D environmentMap;
+uniform sampler2D bumpMap;
+uniform bool isPlane;
+uniform bool isShadow;
+
+out vec4 outColor;
+    
+void main() {
+  vec3 eyeDirection = normalize(-vModelViewPosition.xyz);
+
+  if (isPlane) {
+    // Procedural Texture (Checkerboard)
+    float s = vPosition.x;
+    float t = vPosition.z;
+    float scale = 5.0;
+    float sum = floor(s * scale) + floor(t * scale);
+    bool blockNbr = mod(sum, 2.0) == 0.0;
+    vec3 proceduralTexture = (blockNbr) ? vec3(0.3, 0.3, 0.3) : vec3(0.0, 0.0, 0.0);
+
+    vec3 white = vec3(1.0, 1.0, 1.0);
+    vec3 lightSourcePosition = vec3(2.0,2.0,2.0);
+    vec3 incidentLightVector = normalize(lightSourcePosition - vPosition.xyz);
+    float normalLightDot = max(dot(normal, incidentLightVector), 0.0);
+    vec3 color = white * normalLightDot / (normalLightDot + max(dot(normal, eyeDirection), 1.0));
+    
+
+    vec4 c = vec4(0.1*(1.0, 1.0, 1.0)* color + proceduralTexture * color, 1.0);
+    outColor = c;
+    return;
+  }
+  
+  if (isShadow) {
+    // Shadow Texture
+    vec3 black = vec3(0.0, 0.0, 0.0);
+    
+    outColor = vec4(black*vPosition, 1.0);
+    return;
+  }
+
+  vec2 harryTexCoord;
+  harryTexCoord.s = 1.0-((atan(vPosition.z, vPosition.x))/(2.0 * M_PI));
+  harryTexCoord.t = (vPosition.y + 0.3) / 0.45 - 0.1;
+  vec2 hogwartsTexCoord = (vNormal.xy + 1.0)*0.5;
+  vec4 harry = TEXTURE2D(textureMap, harryTexCoord);
+  vec4 hogwarts = TEXTURE2D(environmentMap, hogwartsTexCoord);
+
+
+  // Bump Mapping
+  
+  float pixel_variance = (4.0 / 1174.0);
+  vec2 positiveY = vec2(0.0, pixel_variance);
+  vec2 negativeY = vec2(0.0, -pixel_variance);
+  vec2 negativeX = vec2(-pixel_variance, 0.0);
+  vec2 positiveX = vec2(pixel_variance, 0.0);
+  vec3 pX_color = vec3(texture(bumpMap, (harryTexCoord+positiveX)));
+  vec3 nX_color = vec3(texture(bumpMap, (harryTexCoord+negativeX)));
+  vec3 pY_color = vec3(texture(bumpMap, (harryTexCoord+positiveY)));
+  vec3 nY_color = vec3(texture(bumpMap, (harryTexCoord+negativeY)));
+  float s_diff = pX_color.s - nX_color.s;
+  float t_diff = pY_color.t - nY_color.t;
+  vec3 N = vNormal + s_diff*cross(vNormal, vec3(0.0, 1.0, 0.0)) + t_diff*cross(vNormal, vec3(1.0, 0.0, 0.0));
+  vec3 normalizedNormal = normalize(N);
+
+
+  float ks = 0.6;
+  vec3 specularLightSourceLocation = vec3(2.5,1.0,3.0);
+  vec3 specularLightDirection = normalize(specularLightSourceLocation - vModelViewPosition.xyz);
+  vec3 specularReflectionDirection = reflect(-specularLightDirection, normalizedNormal);
+  float specularLightComponent = pow(max(dot(specularReflectionDirection, eyeDirection), 0.0), 100.0);
+
+  float kd = 0.8;
+  vec3 diffuseLightSourceLocation = vec3(2.5,2.0,3.0);
+  vec3 diffuseLightDirection = normalize(diffuseLightSourceLocation - vModelViewPosition.xyz);
+  float diffuseLightComponent = max(dot(normalizedNormal, diffuseLightDirection), 0.0);
+
+  vec3 specularColor = vec3(1.0, 1.0, 1.0);
+  vec3 diffuseColor = vec3(1.0, 1.0, 1.0);
+  vec3 lighting = ks * specularColor * specularLightComponent + kd * diffuseColor * diffuseLightComponent;
+
+
+  // Improving bump map using decal texture
+  float kr = 2.0;
+  float magn = smoothstep(0.5, 1.0, length(harry.rgb) / sqrt(3.0));
+  vec3 bump = vec3(magn, magn, magn);
+  vec4 reflection = vec4((hogwarts.rgb + 0.2) * bump * kr, 1.0);
+  // vec4 reflection = vec4((hogwarts.rgb + 0.2) * kr, 1.0);
+
+  // Exclude parts of decal texture that tend to white
+  float kt = 1.5;
+  float maskValue = 1.0 - smoothstep(0.4, 1.0, length(harry.rgb) / sqrt(3.0));
+  vec3 maskedColor = vec3(maskValue, maskValue, maskValue);
+  vec4 decal = vec4(harry.rgb * maskedColor * kt, maskValue);
+
+  vec4 fragmentColor = (decal + reflection);
+  vec4 harry_updated = vec4(fragmentColor.rgb * lighting, fragmentColor.a);
+  vec4 c = vec4(harry_updated.rgb * lighting, 1.0);
+
+  // outColor = vec4(vec3(0.1 * vec3(1.0, 1.0, 1.0) * harry_updated +
+  //                 0.5 * diffuseColor * diffuseLightComponent * harry_updated + 
+  //                 0.4 * specularColor * specularLightComponent * harry_updated), 1.0); 
+  // outColor += vec4(vec3(0.3 * diffuseColor * diffuseLightComponent * hogwarts.rgb + 
+  //                  0.2 * specularColor * specularLightComponent * hogwarts.rgb ), 1.0);
+  outColor = c;
+}
+`;
+
+
+  function initShape(shape, vertexBuffer) {
+    // set up vertex array object
+
+    var shape_vao = gl.createVertexArray();
+    gl.bindVertexArray(shape_vao);
+
+    // create a coordinate buffer of vertex positions and
+    // connect it to the vertex shader positions
+
+    bindAndEnableArrayBuffer(
+      vertexBuffer,
+      3,
+      shape.positions,
+      programLookupData.attributeLocations.vertexPosition
+    );
+
+    // create a coordinate buffer of vertex positions and
+    // connect it to the vertex shader positions
+    // but normalize the normals first
+
+    normalize(shape.normals);
+    bindAndEnableArrayBuffer(
+      gl.createBuffer(),
+      3,
+      shape.normals,
+      programLookupData.attributeLocations.vertexNormal
+    );
+
+    // create an index buffer of triangle faces
+
+    bindElementArrayBuffer(shape.faces);
+
+    return shape_vao
+  }
+
+  function initwebgl() {
+    //
+    // create a graphics context
+    //
+    var canvas = document.getElementById("myGLCanvas");
+    gl = canvas.getContext("webgl2");
+    if (!gl)
+      alert("Failed to create WebGL context!");
+
+    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+
+    var shaderProgram = loadshaders(vertexShaderGLSL, fragmentShaderGLSL);
+
+    programLookupData = {
+      program: shaderProgram,
+      attributeLocations: {
+        vertexPosition: gl.getAttribLocation(shaderProgram, 'aVertexPosition'),
+        vertexNormal: gl.getAttribLocation(shaderProgram, 'aVertexNormal')
+      },
+      uniformLocations: {
+        projectionMatrix: gl.getUniformLocation(shaderProgram, 'uProjectionMatrix'),
+        modelMatrix: gl.getUniformLocation(shaderProgram, 'uModelMatrix'),
+        viewMatrix: gl.getUniformLocation(shaderProgram, 'uViewMatrix'),
+        normalMatrix: gl.getUniformLocation(shaderProgram, 'uNormalMatrix'),
+        textureMap: gl.getUniformLocation(shaderProgram, 'textureMap'),
+        environmentMap: gl.getUniformLocation(shaderProgram, 'environmentMap'),
+        bumpMap: gl.getUniformLocation(shaderProgram, 'bumpMap'),
+        isPlane: gl.getUniformLocation(shaderProgram, 'isPlane'),
+        isShadow: gl.getUniformLocation(shaderProgram, 'isShadow'),
+        
+      },
+    };
+
+    teapotBuffer = gl.createBuffer();
+    teapot_vao = initShape(teapot, teapotBuffer)
+
+    planeBuffer = gl.createBuffer()
+    plane_vao = initShape(plane, planeBuffer)
+
+    shadowBuffer = gl.createBuffer()
+    shadow_vao = initShape(shadow, shadowBuffer)
+
+    //
+    // set up textures
+    //
+
+    Textures = {
+      // harryImageTexture: createImageTexture("HP-Texture.png", 1174, 320, 0),
+      // bumpImageTexture: createImageTexture("HP-Normal-Map.png", 1174, 320, 2),
+      harryImageTexture: createImageTexture("HP-Logo-Final_NM_Final.png", 1220, 367, 0),
+      // bumpImageTexture: createImageTexture("HP-Logo-Final_NM_Final_Inverted.png", 1220, 367, 2),
+      bumpImageTexture: createImageTexture("HP-Logo-Final_NM_Final_NonInverted.png", 1220, 367, 2),
+      environMapImageTexture: createImageTexture("Hogwarts_Stairs_Env_Map.jpg", 1024, 1024, 1),
+      bind: function () {
+        gl.uniform1i(programLookupData.uniformLocations.textureMap, 0);
+        gl.uniform1i(programLookupData.uniformLocations.environmentMap, 1);
+        gl.uniform1i(programLookupData.uniformLocations.bumpMap, 2);
+
+        gl.activeTexture(gl.TEXTURE0);
+        gl.bindTexture(gl.TEXTURE_2D, Textures.harryImageTexture);
+        gl.activeTexture(gl.TEXTURE1);
+        gl.bindTexture(gl.TEXTURE_2D, Textures.environMapImageTexture);
+        gl.activeTexture(gl.TEXTURE2);
+        gl.bindTexture(gl.TEXTURE_2D, Textures.bumpImageTexture);
+      },
+    };
+
+    requestAnimationFrame(draw);
+  }
+
+
+  function clearGL() {
+    gl.clearColor(0.075, 0.16, 0.294, 1.0);
+    gl.clearDepth(1.0);
+    gl.enable(gl.DEPTH_TEST);
+    gl.depthFunc(gl.LEQUAL);
+    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+  }
+
+</script>
+
+<body onload="initwebgl()">
+
+  <canvas id="myGLCanvas" width="800" height="800"></canvas>
+
+</body>
+
+</html>
