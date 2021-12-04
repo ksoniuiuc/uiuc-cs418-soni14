@@ -9,7 +9,7 @@
 <script src="js/image-functions.js"></script>
 <script src="js/draw-functions.js"></script>
 <script src="js/lookup-data.js"></script>
-<script src="js/shadow_pot.js"></script>
+<script src="js/shadow_teapot.js"></script>
 
 <script>
 
@@ -132,7 +132,7 @@ void main() {
 
   // Bump Mapping
   
-  float pixel_variance = (2.5 / 1174.0);
+  float pixel_variance = (3.0 / 1174.0);
   vec2 positiveY = vec2(0.0, pixel_variance);
   vec2 negativeY = vec2(0.0, -pixel_variance);
   vec2 negativeX = vec2(-pixel_variance, 0.0);
