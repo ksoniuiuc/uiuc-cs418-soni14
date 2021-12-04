@@ -33,6 +33,8 @@ uniform mat4 uModelMatrix;
 uniform mat4 uViewMatrix;
 uniform mat3 uNormalMatrix;
 uniform mat4 uProjectionMatrix;
+uniform bool isShadow;
+
 
 out vec3 vPosition;
 out vec3 vModelPosition;
@@ -40,6 +42,7 @@ out vec3 vNormal;
 out vec4 vModelViewPosition;
 out vec3 vModelNormal;
 out vec3 normal;
+out vec3 viewPortPosition;
 
 void main() {
   vPosition = aVertexPosition;
@@ -50,6 +53,7 @@ void main() {
   vModelViewPosition = uViewMatrix * uModelMatrix * vec4(aVertexPosition, 1.0);
   vModelNormal = normalize(mat3(uModelMatrix) * aVertexNormal);
 
+  vec3 viewPortPosition = vPosition;
   gl_Position = uProjectionMatrix * vModelViewPosition;
 }
 `;
@@ -75,6 +79,7 @@ in vec3 vModelPosition;
 in vec3 vNormal, normal;
 in vec4 vModelViewPosition;
 in vec3 vModelNormal;
+in vec3 viewPortPosition;
 
 uniform sampler2D textureMap;
 uniform sampler2D environmentMap;
@@ -89,20 +94,21 @@ void main() {
 
   if (isPlane) {
     // Procedural Texture (Checkerboard)
-    float s = vPosition.x;
-    float t = vPosition.z;
+    vec2 planeCoordinates;
+    planeCoordinates.s = vPosition.x;
+    planeCoordinates.t = vPosition.z;
     float scale = 5.0;
-    float sum = floor(s * scale) + floor(t * scale);
-    bool blockNbr = mod(sum, 2.0) == 0.0;
-    vec3 proceduralTexture = (blockNbr) ? vec3(0.3, 0.3, 0.3) : vec3(0.0, 0.0, 0.0);
-
-    vec3 white = vec3(1.0, 1.0, 1.0);
-    vec3 lightSourcePosition = vec3(2.0,2.0,2.0);
+    float totalTiles = floor(planeCoordinates.s * scale) + floor(planeCoordinates.t * scale);
+    bool tileNumber = mod(totalTiles, 2.0) == 0.0;
+    vec3 proceduralTexture = (tileNumber) ? vec3(0.3, 0.3, 0.3) : vec3(0.0, 0.0, 0.0);
+    
+    vec3 planeColor = vec3(1.0, 1.0, 1.0);  // White color
+    vec3 lightSourcePosition = vec3(2.0, 2.0, 2.0);
     vec3 incidentLightVector = normalize(lightSourcePosition - vPosition.xyz);
     float normalLightDot = max(dot(normal, incidentLightVector), 0.0);
-    vec3 color = white * normalLightDot / (normalLightDot + max(dot(normal, eyeDirection), 1.0));
+    vec3 color = planeColor * normalLightDot / (normalLightDot + max(dot(normal, eyeDirection), 1.0));
     
-
+    // Ambient Color + Procedural Texture Color
     vec4 c = vec4(0.1*(1.0, 1.0, 1.0)* color + proceduralTexture * color, 1.0);
     outColor = c;
     return;
@@ -126,7 +132,7 @@ void main() {
 
   // Bump Mapping
   
-  float pixel_variance = (4.0 / 1174.0);
+  float pixel_variance = (2.5 / 1174.0);
   vec2 positiveY = vec2(0.0, pixel_variance);
   vec2 negativeY = vec2(0.0, -pixel_variance);
   vec2 negativeX = vec2(-pixel_variance, 0.0);
@@ -247,7 +253,7 @@ void main() {
         environmentMap: gl.getUniformLocation(shaderProgram, 'environmentMap'),
         bumpMap: gl.getUniformLocation(shaderProgram, 'bumpMap'),
         isPlane: gl.getUniformLocation(shaderProgram, 'isPlane'),
-        isShadow: gl.getUniformLocation(shaderProgram, 'isShadow'),
+        isShadow: gl.getUniformLocation(shaderProgram, 'isShadow')
         
       },
     };
@@ -266,11 +272,8 @@ void main() {
     //
 
     Textures = {
-      // harryImageTexture: createImageTexture("HP-Texture.png", 1174, 320, 0),
-      // bumpImageTexture: createImageTexture("HP-Normal-Map.png", 1174, 320, 2),
-      harryImageTexture: createImageTexture("HP-Logo-Final_NM_Final.png", 1220, 367, 0),
-      // bumpImageTexture: createImageTexture("HP-Logo-Final_NM_Final_Inverted.png", 1220, 367, 2),
-      bumpImageTexture: createImageTexture("HP-Logo-Final_NM_Final_NonInverted.png", 1220, 367, 2),
+      harryImageTexture: createImageTexture("HP_Logo_Texture.png", 1220, 367, 0),
+      bumpImageTexture: createImageTexture("HP_Logo_Normal_Map.png", 1220, 367, 2),
       environMapImageTexture: createImageTexture("Hogwarts_Stairs_Env_Map.jpg", 1024, 1024, 1),
       bind: function () {
         gl.uniform1i(programLookupData.uniformLocations.textureMap, 0);
