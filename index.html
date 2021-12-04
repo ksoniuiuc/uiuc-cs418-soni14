@@ -33,6 +33,8 @@ uniform mat4 uModelMatrix;
 uniform mat4 uViewMatrix;
 uniform mat3 uNormalMatrix;
 uniform mat4 uProjectionMatrix;
+uniform bool isShadow;
+
 
 out vec3 vPosition;
 out vec3 vModelPosition;
@@ -129,7 +131,7 @@ void main() {
 
   // Bump Mapping
   
-  float pixel_variance = (4.0 / 1174.0);
+  float pixel_variance = (2.5 / 1174.0);
   vec2 positiveY = vec2(0.0, pixel_variance);
   vec2 negativeY = vec2(0.0, -pixel_variance);
   vec2 negativeX = vec2(-pixel_variance, 0.0);
@@ -250,7 +252,7 @@ void main() {
         environmentMap: gl.getUniformLocation(shaderProgram, 'environmentMap'),
         bumpMap: gl.getUniformLocation(shaderProgram, 'bumpMap'),
         isPlane: gl.getUniformLocation(shaderProgram, 'isPlane'),
-        isShadow: gl.getUniformLocation(shaderProgram, 'isShadow'),
+        isShadow: gl.getUniformLocation(shaderProgram, 'isShadow')
         
       },
     };
@@ -302,7 +304,7 @@ void main() {
 
 <body onload="initwebgl()">
 
-  <canvas id="myGLCanvas" width="800" height="800"></canvas>
+  <canvas id="myGLCanvas" width="1000" height="1000"></canvas>
 
 </body>
 

@@ -15,15 +15,15 @@ const Matrices = {
     TeapotModel: function (time) {
         var model = glMatrix.mat4.create();
         glMatrix.mat4.scale(model, model, [0.89, 0.89, 0.89]);
-        glMatrix.mat4.translate(model, model, [-0.3, -0.0, -1.0]);
+        glMatrix.mat4.translate(model, model, [-0.2, 0.0, -1.0]);
         glMatrix.mat4.rotateY(model, model, time * 0.0005);
         return model
     },
-    Shadow: function () {
+    Shadow: function (time) {
         var shadow = glMatrix.mat4.create();
         glMatrix.mat4.translate(shadow, shadow, [-0.5, -0.3, -0.5]);
-        glMatrix.mat4.scale(shadow, shadow, [0.8, 0.02, 1.0]);        
-        // glMatrix.mat4.rotateY(shadow, shadow, time * 0.0005);
+        glMatrix.mat4.scale(shadow, shadow, [1.0, 0.01, 0.6]);   
+        glMatrix.mat4.rotateY(shadow, shadow, time * 0.0005);
         return shadow
     },
     View: function () {
