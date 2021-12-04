@@ -9,7 +9,7 @@
 <script src="js/image-functions.js"></script>
 <script src="js/draw-functions.js"></script>
 <script src="js/lookup-data.js"></script>
-<script src="js/shadow_pot.js"></script>
+<script src="js/shadow_teapot.js"></script>
 
 <script>
 
@@ -102,6 +102,7 @@ void main() {
     bool tileNumber = mod(totalTiles, 2.0) == 0.0;
     vec3 proceduralTexture = (tileNumber) ? vec3(0.3, 0.3, 0.3) : vec3(0.0, 0.0, 0.0);
     
+    // Plane diffused color component
     vec3 planeColor = vec3(1.0, 1.0, 1.0);  // White color
     vec3 lightSourcePosition = vec3(2.0, 2.0, 2.0);
     vec3 incidentLightVector = normalize(lightSourcePosition - vPosition.xyz);
@@ -115,7 +116,7 @@ void main() {
   }
   
   if (isShadow) {
-    // Shadow Texture
+    // Shadow Color
     vec3 black = vec3(0.0, 0.0, 0.0);
     
     outColor = vec4(black*vPosition, 1.0);
@@ -126,33 +127,35 @@ void main() {
   harryTexCoord.s = 1.0-((atan(vPosition.z, vPosition.x))/(2.0 * M_PI));
   harryTexCoord.t = (vPosition.y + 0.3) / 0.45 - 0.1;
   vec2 hogwartsTexCoord = (vNormal.xy + 1.0)*0.5;
-  vec4 harry = TEXTURE2D(textureMap, harryTexCoord);
-  vec4 hogwarts = TEXTURE2D(environmentMap, hogwartsTexCoord);
+  vec4 harryTexture = TEXTURE2D(textureMap, harryTexCoord);
+  vec4 hogwartsEnvironment = TEXTURE2D(environmentMap, hogwartsTexCoord);
 
 
   // Bump Mapping
   
-  float pixel_variance = (2.5 / 1174.0);
-  vec2 positiveY = vec2(0.0, pixel_variance);
-  vec2 negativeY = vec2(0.0, -pixel_variance);
-  vec2 negativeX = vec2(-pixel_variance, 0.0);
-  vec2 positiveX = vec2(pixel_variance, 0.0);
-  vec3 pX_color = vec3(texture(bumpMap, (harryTexCoord+positiveX)));
-  vec3 nX_color = vec3(texture(bumpMap, (harryTexCoord+negativeX)));
-  vec3 pY_color = vec3(texture(bumpMap, (harryTexCoord+positiveY)));
-  vec3 nY_color = vec3(texture(bumpMap, (harryTexCoord+negativeY)));
-  float s_diff = pX_color.s - nX_color.s;
-  float t_diff = pY_color.t - nY_color.t;
+  float hS = (2.0 / 1174.0);
+  float hT = (2.0 / 320.0);
+  vec2 positiveT = vec2(0.0, hT);
+  vec2 negativeT = vec2(0.0, -hT);
+  vec2 negativeS = vec2(-hS, 0.0);
+  vec2 positiveS = vec2(hS, 0.0);
+  vec3 pS_color = vec3(texture(bumpMap, (harryTexCoord+positiveS)));
+  vec3 nS_color = vec3(texture(bumpMap, (harryTexCoord+negativeS)));
+  vec3 pT_color = vec3(texture(bumpMap, (harryTexCoord+positiveT)));
+  vec3 nT_color = vec3(texture(bumpMap, (harryTexCoord+negativeT)));
+  float s_diff = pS_color.s - nS_color.s;
+  float t_diff = pT_color.t - nT_color.t;
   vec3 N = vNormal + s_diff*cross(vNormal, vec3(0.0, 1.0, 0.0)) + t_diff*cross(vNormal, vec3(1.0, 0.0, 0.0));
   vec3 normalizedNormal = normalize(N);
 
-
+  // Specular Reflection Component
   float ks = 0.6;
   vec3 specularLightSourceLocation = vec3(2.5,1.0,3.0);
   vec3 specularLightDirection = normalize(specularLightSourceLocation - vModelViewPosition.xyz);
   vec3 specularReflectionDirection = reflect(-specularLightDirection, normalizedNormal);
   float specularLightComponent = pow(max(dot(specularReflectionDirection, eyeDirection), 0.0), 100.0);
 
+  // Diffused Reflection Component
   float kd = 0.8;
   vec3 diffuseLightSourceLocation = vec3(2.5,2.0,3.0);
   vec3 diffuseLightDirection = normalize(diffuseLightSourceLocation - vModelViewPosition.xyz);
@@ -165,26 +168,21 @@ void main() {
 
   // Improving bump map using decal texture
   float kr = 2.0;
-  float magn = smoothstep(0.5, 1.0, length(harry.rgb) / sqrt(3.0));
+  float magn = smoothstep(0.5, 1.0, length(harryTexture.rgb) / sqrt(3.0));
   vec3 bump = vec3(magn, magn, magn);
-  vec4 reflection = vec4((hogwarts.rgb + 0.2) * bump * kr, 1.0);
-  // vec4 reflection = vec4((hogwarts.rgb + 0.2) * kr, 1.0);
+  vec4 reflection = vec4((hogwartsEnvironment.rgb + 0.2) * bump * kr, 1.0);
+  // vec4 reflection = vec4((hogwartsEnvironment.rgb + 0.2) * kr, 1.0);
 
   // Exclude parts of decal texture that tend to white
   float kt = 1.5;
-  float maskValue = 1.0 - smoothstep(0.4, 1.0, length(harry.rgb) / sqrt(3.0));
+  float maskValue = 1.0 - smoothstep(0.4, 1.0, length(harryTexture.rgb) / sqrt(3.0));
   vec3 maskedColor = vec3(maskValue, maskValue, maskValue);
-  vec4 decal = vec4(harry.rgb * maskedColor * kt, maskValue);
+  vec4 decal = vec4(harryTexture.rgb * maskedColor * kt, maskValue);
 
   vec4 fragmentColor = (decal + reflection);
   vec4 harry_updated = vec4(fragmentColor.rgb * lighting, fragmentColor.a);
   vec4 c = vec4(harry_updated.rgb * lighting, 1.0);
 
-  // outColor = vec4(vec3(0.1 * vec3(1.0, 1.0, 1.0) * harry_updated +
-  //                 0.5 * diffuseColor * diffuseLightComponent * harry_updated + 
-  //                 0.4 * specularColor * specularLightComponent * harry_updated), 1.0); 
-  // outColor += vec4(vec3(0.3 * diffuseColor * diffuseLightComponent * hogwarts.rgb + 
-  //                  0.2 * specularColor * specularLightComponent * hogwarts.rgb ), 1.0);
   outColor = c;
 }
 `;
