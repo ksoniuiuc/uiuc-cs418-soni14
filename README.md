@@ -19,10 +19,10 @@ Moony, Wormtail, Padfoot and Prongs, proudly presents their "The Levitating Caul
     The Smooth surface per pixel shading has been done using Phong Lighting model.
 
 &check; Diffuse Reflectance:<br/>
-    Phong Formula has been used for the diffused Reflectance. It is implemented by using 1 light source at position vec3(2.0, 2.0, 2.0) and surfaces away from the light source do not reflect any light.
+    Phong Formula has been used for the diffused Reflectance. It is implemented by using 1 light source at position (2.5,1.0, 3.0) and surfaces away from the light source do not reflect any light.
 
 &check; Specular Highlights: <br/>
-    Phong Formula has been used for Specular Highlights. It is implemented by using 1 light source at position vec3(2.0, 2.0, 2.0) with a gleem component of 60.
+    Phong Formula has been used for Specular Highlights. It is implemented by using 1 light source at position (2.5,1.0, 3.0) with a gleem component of 60.
 
 &check; Surface Texture: <br/>
     A texture image of "Harry Potter", "Lightning Bolt" and "Hogwarts Logo" has been used for texturing the teapot. The texture coordinated were computed using a cylindrical texture coordinate formula 1.0-((atan(vPosition.z, vPosition.x))/(2.0 * M_PI)).
