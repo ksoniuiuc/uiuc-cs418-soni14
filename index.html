@@ -40,20 +40,21 @@ out vec3 vPosition;
 out vec3 vModelPosition;
 out vec3 vNormal;
 out vec4 vModelViewPosition;
-out vec3 vModelNormal;
 out vec3 normal;
-out vec3 viewPortPosition;
 
 void main() {
   vPosition = aVertexPosition;
+
+  // To be used for Plane diffused coloring
   normal = aVertexNormal;
 
-  vModelPosition = mat3(uModelMatrix) * aVertexPosition;
+  // To be used for the Model the Phong Lighting Model
   vNormal = uNormalMatrix*aVertexNormal;
-  vModelViewPosition = uViewMatrix * uModelMatrix * vec4(aVertexPosition, 1.0);
-  vModelNormal = normalize(mat3(uModelMatrix) * aVertexNormal);
 
-  vec3 viewPortPosition = vPosition;
+  vModelPosition = mat3(uModelMatrix) * aVertexPosition;
+  
+  vModelViewPosition = uViewMatrix * uModelMatrix * vec4(aVertexPosition, 1.0);
+
   gl_Position = uProjectionMatrix * vModelViewPosition;
 }
 `;
@@ -64,7 +65,7 @@ void main() {
 
   var fragmentShaderGLSL = `#version 300 es
 
-#define M_PI 3.1415926535
+#define PI_VALUE 3.1415926535
 
 #if __VERSION__ < 130
 #define TEXTURE2D texture2D
@@ -78,14 +79,13 @@ in vec3 vPosition;
 in vec3 vModelPosition;
 in vec3 vNormal, normal;
 in vec4 vModelViewPosition;
-in vec3 vModelNormal;
-in vec3 viewPortPosition;
 
 uniform sampler2D textureMap;
 uniform sampler2D environmentMap;
 uniform sampler2D bumpMap;
 uniform bool isPlane;
 uniform bool isShadow;
+uniform float PI;
 
 out vec4 outColor;
     
@@ -124,7 +124,7 @@ void main() {
   }
 
   vec2 harryTexCoord;
-  harryTexCoord.s = 1.0-((atan(vPosition.z, vPosition.x))/(2.0 * M_PI));
+  harryTexCoord.s = 1.0-((atan(vPosition.z, vPosition.x))/(2.0 * PI_VALUE));
   harryTexCoord.t = (vPosition.y + 0.3) / 0.45 - 0.1;
   vec2 hogwartsTexCoord = (vNormal.xy + 1.0)*0.5;
   vec4 harryTexture = TEXTURE2D(textureMap, harryTexCoord);
@@ -229,6 +229,9 @@ void main() {
     //
     var canvas = document.getElementById("myGLCanvas");
     gl = canvas.getContext("webgl2");
+    
+    canvas.style = "background: url('textures/Hogwarts_Stairs_Env_Map.jpg')";
+    
     if (!gl)
       alert("Failed to create WebGL context!");
 
@@ -252,7 +255,7 @@ void main() {
         bumpMap: gl.getUniformLocation(shaderProgram, 'bumpMap'),
         isPlane: gl.getUniformLocation(shaderProgram, 'isPlane'),
         isShadow: gl.getUniformLocation(shaderProgram, 'isShadow')
-        
+
       },
     };
 
@@ -270,9 +273,9 @@ void main() {
     //
 
     Textures = {
-      harryImageTexture: createImageTexture("HP_Logo_Texture.png", 1220, 367, 0),
-      bumpImageTexture: createImageTexture("HP_Logo_Normal_Map.png", 1220, 367, 2),
-      environMapImageTexture: createImageTexture("Hogwarts_Stairs_Env_Map.jpg", 1024, 1024, 1),
+      harryImageTexture: createImageTexture("textures/HP_Logo_Texture.png", 1220, 367, 0),
+      bumpImageTexture: createImageTexture("textures/HP_Logo_Normal_Map.png", 1220, 367, 2),
+      environMapImageTexture: createImageTexture("textures/Hogwarts_Stairs_Env_Map.jpg", 1024, 1024, 1),
       bind: function () {
         gl.uniform1i(programLookupData.uniformLocations.textureMap, 0);
         gl.uniform1i(programLookupData.uniformLocations.environmentMap, 1);
@@ -292,11 +295,31 @@ void main() {
 
 
   function clearGL() {
-    gl.clearColor(0.075, 0.16, 0.294, 1.0);
+    //gl.clearColor(0.075, 0.16, 0.294, 1.0);
+    gl.clearColor(0.0, 0.0, 0.0, 0.0);
+    initBkgnd();
     gl.clearDepth(1.0);
     gl.enable(gl.DEPTH_TEST);
     gl.depthFunc(gl.LEQUAL);
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+  }
+
+  function initBkgnd() {
+    backTex = gl.createTexture();
+    backTex.Img = new Image();
+    backTex.Img.onload = function () {
+      handleBkTex(backTex);
+    }
+    backTex.Img.src = "textures/Hogwarts_Stairs_Env_Map.jpg";
+  }
+
+  function handleBkTex(tex) {
+    gl.bindTexture(gl.TEXTURE_2D, tex);
+    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, tex.Img);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+    gl.bindTexture(gl.TEXTURE_2D, null);
   }
 
 </script>
