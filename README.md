@@ -5,7 +5,8 @@
 Marauders' Pot
 
 #### CAPTION
-"The Cauldron of Levitation"
+Moony, Wormtail, Padfoot and Prongs, proudly presents their "The Levitating Cauldron"
+
 
 <br/>
 
